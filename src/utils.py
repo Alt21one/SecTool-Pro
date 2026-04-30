@@ -4,9 +4,9 @@ from tkinter import filedialog
 def export_log(text_content, module_name):
     """Opens a Save Dialog and writes the log content to a .txt file"""
     if not text_content.strip():
-        return # Don't save empty logs
+        return 
 
-    # Open the Windows "Save As" window
+   
     file_path = filedialog.asksaveasfilename(
         defaultextension=".txt",
         initialfile=f"SecTool_Report_{module_name}.txt",
@@ -14,11 +14,11 @@ def export_log(text_content, module_name):
         filetypes=[("Text Files", "*.txt"), ("Log Files", "*.log"), ("All Files", "*.*")]
     )
     
-    # If the user selected a location and clicked Save
+    
     if file_path:
         try:
             with open(file_path, "w", encoding="utf-8") as f:
-                # Add a nice professional header to the text file
+                
                 f.write(f"=========================================\n")
                 f.write(f"  SecTool Pro - {module_name} Report\n")
                 f.write(f"=========================================\n\n")
