@@ -34,11 +34,11 @@ Perform lightning-fast offline signature scans using a local SHA-256 hash databa
 
 <br>
 
-<img width="695" height="486" alt="Screenshot_69" src="https://github.com/user-attachments/assets/9c910359-d774-48f1-9bfc-434b6f673aff" />
+<img width="1918" height="982" alt="Screenshot_71" src="https://github.com/user-attachments/assets/20661c8d-a529-4ece-98e2-a69a35443e26" />
 
 <br>
 
-<img width="1918" height="982" alt="Screenshot_71" src="https://github.com/user-attachments/assets/20661c8d-a529-4ece-98e2-a69a35443e26" />
+<img width="695" height="486" alt="Screenshot_69" src="https://github.com/user-attachments/assets/9c910359-d774-48f1-9bfc-434b6f673aff" />
 
 <br>
 
