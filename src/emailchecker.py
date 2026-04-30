@@ -8,12 +8,7 @@ import hashlib
 import gui_theme as gt
 import utils
 
-# ==========================================
-# HELPERS
-# ==========================================
-
 def _nslookup(qtype, domain):
-    """Run nslookup and return raw output."""
     try:
         return subprocess.check_output(
             ["nslookup", f"-type={qtype}", domain],
@@ -23,19 +18,11 @@ def _nslookup(qtype, domain):
     except Exception:
         return ""
 
-
-# ==========================================
-# ANALYSIS CHECKS
-# ==========================================
-
 def check_format(email):
-    """Validate email format via regex."""
     pattern = r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
     return bool(re.match(pattern, email))
 
-
 def check_mx(domain, log):
-    """Check DNS MX records for the domain."""
     log("\n📧 Checking MX (Mail Exchange) records...")
     raw = _nslookup("mx", domain)
     mx_records = []
@@ -52,9 +39,7 @@ def check_mx(domain, log):
         log("❌ No MX records found — domain cannot receive email!")
         return False
 
-
 def check_spf(domain, log):
-    """Check SPF record in DNS TXT."""
     log("\n🛡️ Checking SPF (Sender Policy Framework)...")
     raw = _nslookup("txt", domain)
     spf_found = False
@@ -80,9 +65,7 @@ def check_spf(domain, log):
         return "missing"
     return "ok"
 
-
 def check_dmarc(domain, log):
-    """Check DMARC record."""
     log("\n🛡️ Checking DMARC (Domain-based Message Authentication)...")
     raw = _nslookup("txt", f"_dmarc.{domain}")
     for line in raw.splitlines():
@@ -101,9 +84,7 @@ def check_dmarc(domain, log):
     log("⚠️  No DMARC record found — phishing via this domain is easier!")
     return "missing"
 
-
 def check_disposable(email, log):
-    """Check if email uses a disposable/burner provider."""
     log("\n🕵️ Checking disposable email databases...")
     try:
         res = requests.get(
@@ -121,13 +102,10 @@ def check_disposable(email, log):
         log("⚠️  Could not reach disposable email database.")
     return False
 
-
 def check_breaches(email, log):
-    """Check for data breaches via XposedOrNot API with full details."""
     log("\n🔓 Checking for known data breaches...")
     breaches_list = []
 
-    # --- Step 1: quick check ---
     try:
         res = requests.get(
             f"https://api.xposedornot.com/v1/check-email/{email}", timeout=10
@@ -153,7 +131,6 @@ def check_breaches(email, log):
 
     log(f"🚨 ALERT: Found in {len(breaches_list)} data breach(es)!\n")
 
-    # --- Step 2: get detailed breach analytics ---
     try:
         detail_res = requests.get(
             f"https://api.xposedornot.com/v1/breach-analytics?email={email}",
@@ -169,7 +146,6 @@ def check_breaches(email, log):
                     name = bd.get("breach", "Unknown")
                     domain = bd.get("domain", "—")
                     date = bd.get("added_date", bd.get("breach_date", "Unknown"))
-                    # Trim date to just the date part
                     if "T" in str(date):
                         date = str(date).split("T")[0]
                     records = bd.get("records", "?")
@@ -190,24 +166,18 @@ def check_breaches(email, log):
                         log(f"   │  Password:  {password_risk}")
                     log(f"   └{'─' * 40}")
             else:
-                # Fallback: just show names
                 for b in breaches_list:
                     log(f"   └ {b}")
         else:
-            # Fallback: just names
             for b in breaches_list:
                 log(f"   └ {b}")
     except Exception:
-        # Fallback: just names
         for b in breaches_list:
             log(f"   └ {b}")
 
     return breaches_list
 
-
 def check_hibp_password(email, log):
-    """Check if the email's domain-prefix hash appears in HaveIBeenPwned Passwords
-    (we hash the local part as a basic check — this is a demo/heuristic)."""
     log("\n🔑 Checking password breach exposure (k-anonymity)...")
     local_part = email.split("@")[0]
     sha1 = hashlib.sha1(local_part.encode()).hexdigest().upper()
@@ -231,9 +201,7 @@ def check_hibp_password(email, log):
         log("⚠️  Network error checking password breaches.")
     return False
 
-
 def check_social_presence(email, log):
-    """Basic check — does a Gravatar exist for this email?"""
     log("\n👤 Checking public profile / social footprint...")
     email_hash = hashlib.md5(email.lower().strip().encode()).hexdigest()
     try:
@@ -249,13 +217,7 @@ def check_social_presence(email, log):
         log("⚠️  Could not check Gravatar.")
     return False
 
-
-# ==========================================
-# FULL ANALYSIS RUNNER
-# ==========================================
-
 def run_full_analysis(email, log, on_complete):
-    """Run all checks and call on_complete with a results dict."""
     email = email.strip().lower()
     results = {
         "email": email,
@@ -274,7 +236,6 @@ def run_full_analysis(email, log, on_complete):
     log(f"🔍 Full OSINT Analysis for: {email}")
     log("=" * 55)
 
-    # Format
     if not check_format(email):
         log("❌ Invalid email format!")
         results["risk_level"] = "Invalid"
@@ -286,28 +247,14 @@ def run_full_analysis(email, log, on_complete):
     log("✅ Email format is valid.")
     domain = email.split("@")[1]
 
-    # DNS / MX
     results["mx_ok"] = check_mx(domain, log)
-
-    # SPF
     results["spf"] = check_spf(domain, log)
-
-    # DMARC
     results["dmarc"] = check_dmarc(domain, log)
-
-    # Disposable
     results["disposable"] = check_disposable(email, log)
-
-    # Breaches
     results["breaches"] = check_breaches(email, log)
-
-    # Password breach
     results["password_exposed"] = check_hibp_password(email, log)
-
-    # Gravatar
     results["gravatar"] = check_social_presence(email, log)
 
-    # --- Risk score calculation ---
     score = 0
     if not results["mx_ok"]:
         score += 30
@@ -346,11 +293,6 @@ def run_full_analysis(email, log, on_complete):
 
     on_complete(results)
 
-
-# ==========================================
-# UI: EMAIL CHECKER FRAME
-# ==========================================
-
 RISK_COLORS = {
     "Clean":       ("#4caf7a", "#1a3d2e"),
     "Low Risk":    ("#b8cc44", "#2e3a1a"),
@@ -361,7 +303,6 @@ RISK_COLORS = {
     "Unknown":     ("#6a6a7a", "#22222a"),
 }
 
-
 def create_email_checker_frame(parent):
     frame = ctk.CTkFrame(parent, fg_color="transparent")
 
@@ -371,7 +312,6 @@ def create_email_checker_frame(parent):
         "Domain validation, breach detection, spoofing risk & social footprint.",
     ).pack(anchor="w", pady=(0, 14))
 
-    # --- Controls card ---
     card = gt.control_card(frame)
     card.pack(fill="x", pady=(0, 10))
     ctrl = ctk.CTkFrame(card, fg_color="transparent")
@@ -380,7 +320,6 @@ def create_email_checker_frame(parent):
     ent_email = gt.create_styled_entry(ctrl, width=300, placeholder_text="target@example.com")
     ent_email.pack(side="left", padx=(0, 10))
 
-    # --- Result summary cards ---
     summary_frame = ctk.CTkFrame(frame, fg_color="transparent")
     summary_frame.pack(fill="x", pady=(0, 8))
     summary_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
@@ -429,8 +368,6 @@ def create_email_checker_frame(parent):
             w["card"].configure(border_color=border)
 
     def _update_cards(r):
-        """Update summary cards from results dict."""
-        # Risk score
         level = r["risk_level"]
         fg, bg = RISK_COLORS.get(level, ("#6a6a7a", "#22222a"))
         score = r["risk_score"]
@@ -439,13 +376,11 @@ def create_email_checker_frame(parent):
         else:
             _set_card("risk", f"{score}/100", fg=fg, card_bg=bg, border=fg)
 
-        # MX
         if r["mx_ok"]:
             _set_card("mx", "✅ Valid", fg="#4caf7a", card_bg="#1a3d2e", border="#4caf7a")
         else:
             _set_card("mx", "❌ None", fg="#e05555", card_bg="#3d1a1a", border="#e05555")
 
-        # Spoof protection (SPF + DMARC)
         spf = r["spf"]
         dmarc = r["dmarc"]
         if spf == "ok" and dmarc == "ok":
@@ -455,14 +390,12 @@ def create_email_checker_frame(parent):
         else:
             _set_card("spoof", "⚡ Partial", fg="#b8cc44")
 
-        # Breaches
         bc = len(r["breaches"])
         if bc == 0:
             _set_card("breaches", "✅ Clean", fg="#4caf7a", card_bg="#1a3d2e", border="#4caf7a")
         else:
             _set_card("breaches", f"🚨 {bc} found", fg="#e05555", card_bg="#3d1a1a", border="#e05555")
 
-        # Identity
         if r["disposable"]:
             _set_card("identity", "🗑️ Burner", fg="#e05555", card_bg="#3d1a1a", border="#e05555")
         elif r["gravatar"]:
@@ -470,7 +403,6 @@ def create_email_checker_frame(parent):
         else:
             _set_card("identity", "🔍 Unknown", fg="#6a6a7a")
 
-    # --- Log textbox ---
     txt_log = gt.create_log_textbox(frame)
     txt_log.pack(fill="both", expand=True, pady=(4, 0))
 
