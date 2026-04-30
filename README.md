@@ -14,7 +14,7 @@ SecTool Pro is divided into seven core security modules, accessible via the side
 
 ### 🗺️ Network Mapper
 Discovers active devices on your local network using native Windows ARP and ping sweeps.  
-* **Topology Visualization:** Draws a beautiful, interactive radial map of your network.  
+* **Topology Visualization:** Displays devices in a clear, responsive network map.  
 * **Smart Proximity:** Calculates the distance of nodes from the center based on ping latency (RTT).  
 * **OS Fingerprinting:** Estimates the target's operating system based on TTL responses.
 
