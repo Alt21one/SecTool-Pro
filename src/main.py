@@ -5,7 +5,6 @@ import requests
 from PIL import Image
 import sys
 
-# Import your external modules
 import portscanner
 import emailchecker
 import vulnscanner
@@ -14,36 +13,26 @@ import malscan
 import HIDS
 import utils
 
-
-# ==========================================
-# GUI CONFIGURATION
-# ==========================================
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 def load_icon(filename, size=(25, 25)):
-    # 1. Figure out the base path (EXE temp folder OR project root)
     if hasattr(sys, '_MEIPASS'):
         base_dir = sys._MEIPASS
     else:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = os.path.join(current_dir, "..")
     
-    # 2. Handle the specific location of the main logo vs other icons
     make_white = True
     if filename == "cyber-security.png":
-        # The main logo is in the root folder, not the icons folder
         icon_path = os.path.join(base_dir, filename)
-        make_white = False # FORCE it to keep its original blue color
+        make_white = False
     else:
-        # All other icons are in the icons folder
         icon_path = os.path.join(base_dir, "icons", filename)
     
-    # 3. Load and optionally colorize
     if os.path.exists(icon_path):
         img = Image.open(icon_path).convert("RGBA")
         
-        # Only turn it white if it's NOT the main logo
         if make_white:
             r, g, b, a = img.split()
             gray = Image.new("L", img.size, 220)
@@ -52,9 +41,6 @@ def load_icon(filename, size=(25, 25)):
         return ctk.CTkImage(light_image=img, dark_image=img, size=size)
     return None
 
-# ==========================================
-# LOGIC: VULN SCANNER (Still in main.py)
-# ==========================================
 def run_vuln_scan(url, txt):
     def log(msg): txt.after(0, lambda: txt.insert("end", msg + "\n"))
     if not url.startswith("http"): url = "https://" + url
@@ -67,9 +53,6 @@ def run_vuln_scan(url, txt):
             log(f"{h}: {status}")
     except Exception as e: log(f"Error: {e}")
 
-# ==========================================
-# DASHBOARD GENERATOR (Upgraded)
-# ==========================================
 def create_dashboard_frame(parent):
     import json
     import platform
@@ -79,7 +62,6 @@ def create_dashboard_frame(parent):
     
     frame = ctk.CTkFrame(parent, fg_color="transparent")
     
-    # 1. Header
     header = ctk.CTkFrame(frame, fg_color="transparent")
     header.pack(fill="x", pady=(0, 14))
     
@@ -98,12 +80,10 @@ def create_dashboard_frame(parent):
     ctk.CTkLabel(header, text=f"Last Threat Scan: {last_scan}",
                  text_color=scan_color, font=("Segoe UI", 13)).pack(anchor="w", pady=(4, 0))
 
-    # 2. Stat cards row
     stats_frame = ctk.CTkFrame(frame, fg_color="transparent")
     stats_frame.pack(fill="x", pady=(0, 10))
     stats_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
 
-    # Load dynamic data
     db_size = 0
     if os.path.exists("malware_hashes.txt"):
         try:
@@ -132,7 +112,6 @@ def create_dashboard_frame(parent):
     hostname = socket.gethostname()
     ip_addr = socket.gethostbyname(hostname)
 
-    # OS info
     os_name = platform.system()
     os_ver = platform.version()
     os_release = platform.release()
@@ -162,14 +141,12 @@ def create_dashboard_frame(parent):
         ctk.CTkLabel(inner, text=value,
                      font=("Segoe UI", 15, "bold"), text_color=fg).pack(pady=(2, 0))
 
-    # 3. Shield + system info side by side
     mid_frame = ctk.CTkFrame(frame, fg_color="transparent")
     mid_frame.pack(fill="both", expand=True, pady=(6, 6))
     mid_frame.grid_columnconfigure(0, weight=1)
     mid_frame.grid_columnconfigure(1, weight=2)
     mid_frame.grid_rowconfigure(0, weight=1)
 
-    # Shield image
     shield_card = ctk.CTkFrame(mid_frame, fg_color="#22222a", corner_radius=14,
                                border_width=1, border_color="#34343f")
     shield_card.grid(row=0, column=0, padx=(0, 6), sticky="nsew")
@@ -185,7 +162,6 @@ def create_dashboard_frame(parent):
                  font=("Segoe UI", 14, "bold"), text_color=status_clr).place(
         relx=0.5, rely=0.78, anchor="center")
 
-    # System details card
     info_card = ctk.CTkFrame(mid_frame, fg_color="#22222a", corner_radius=14,
                              border_width=1, border_color="#34343f")
     info_card.grid(row=0, column=1, padx=(6, 0), sticky="nsew")
@@ -219,7 +195,6 @@ def create_dashboard_frame(parent):
         ctk.CTkLabel(row, text=value, anchor="w",
                      font=("Consolas", 11), text_color="#d8d8e0").pack(side="left")
 
-    # 4. Bottom bar
     bottom = ctk.CTkFrame(frame, fg_color="#1a1a22", corner_radius=12, height=36)
     bottom.pack(fill="x", pady=(6, 0))
     bottom.pack_propagate(False)
@@ -229,9 +204,7 @@ def create_dashboard_frame(parent):
     ).place(relx=0.5, rely=0.5, anchor="center")
 
     return frame
-# ==========================================
-# MAIN APPLICATION
-# ==========================================
+
 def main():
     app = ctk.CTk()
     app.title("SecTool Pro")
@@ -241,7 +214,6 @@ def main():
     app.grid_rowconfigure(0, weight=1)
     app.grid_columnconfigure(1, weight=1)
 
-    # --- SIDEBAR ---
     sidebar = ctk.CTkFrame(app, width=75, corner_radius=0, fg_color="#111111")
     sidebar.grid(row=0, column=0, sticky="nsew")
     sidebar.grid_propagate(False)
@@ -255,25 +227,20 @@ def main():
     btn_args = {"compound": "top", "width": 65, "height": 60, "fg_color": "transparent", 
                 "hover_color": "#2b2b2b", "corner_radius": 12, "font": ("Segoe UI", 10, "bold")}
 
-    # --- MAIN CONTAINER ---
     container = ctk.CTkFrame(app, corner_radius=25, fg_color="#242424", border_width=1, border_color="#333333")
     container.grid(row=0, column=1, sticky="nsew", padx=15, pady=15)
     
     view = ctk.CTkFrame(container, fg_color="transparent")
     view.pack(fill="both", expand=True, padx=25, pady=25)
 
-    # --- INITIALIZE TABS ---
     frame_home = create_dashboard_frame(view)
     frame_malware = malscan.create_malscan_frame(view)
     frame_vuln = vulnscanner.create_vulnscanner_frame(view)
     frame_port = portscanner.create_port_scanner_frame(view)
-   # frame_fim = FIM.create_fim_frame(view)
     frame_hids = HIDS.create_hids_frame(view)
     frame_map = netmapper.create_netmapper_frame(view)
     frame_email = emailchecker.create_email_checker_frame(view)
 
-
-    # --- SIDEBAR BUTTONS ---
     btn_nav_malware = ctk.CTkButton(sidebar, text="Malware", image=load_icon("malware.png"), command=lambda: select_frame("malware"), **btn_args)
     btn_nav_malware.grid(row=1, column=0, pady=5)
 
@@ -282,9 +249,6 @@ def main():
 
     btn_nav_port = ctk.CTkButton(sidebar, text="Ports", image=load_icon("port.png"), command=lambda: select_frame("port"), **btn_args)
     btn_nav_port.grid(row=3, column=0, pady=5)
-
-    #btn_nav_fim = ctk.CTkButton(sidebar, text="FIM", image=load_icon("folder.png"), command=lambda: select_frame("fim"), **btn_args)
-    #btn_nav_fim.grid(row=4, column=0, pady=5)
 
     btn_nav_hids = ctk.CTkButton(sidebar, text="HIDS", image=load_icon("hids.png"), command=lambda: select_frame("hids"), **btn_args)
     btn_nav_hids.grid(row=4, column=0, pady=5)
@@ -295,9 +259,6 @@ def main():
     btn_nav_email = ctk.CTkButton(sidebar, text="Email", image=load_icon("email.png"), command=lambda: select_frame("email"), **btn_args)
     btn_nav_email.grid(row=6, column=0, pady=5)
 
-
-
-    # --- ROUTING LOGIC ---
     def select_frame(name):
         for b in [btn_nav_home, btn_nav_malware, btn_nav_vuln, btn_nav_port, btn_nav_hids,btn_nav_map ,btn_nav_email]:
             b.configure(fg_color="transparent")
@@ -316,9 +277,6 @@ def main():
         elif name == "port":
             frame_port.pack(fill="both", expand=True)
             btn_nav_port.configure(fg_color="#2b2b2b")
-       # elif name == "fim":
-       #     frame_fim.pack(fill="both", expand=True)
-       #     btn_nav_fim.configure(fg_color="#2b2b2b")
         elif name == "hids":
             frame_hids.pack(fill="both", expand=True)
             btn_nav_hids.configure(fg_color="#2b2b2b")
