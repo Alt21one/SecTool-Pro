@@ -11,11 +11,6 @@ import ctypes
 import gui_theme as gt
 import utils
 
-# ==========================================
-# DETECTION ENGINE
-# ==========================================
-
-# Well-known suspicious ports
 SUSPICIOUS_PORTS = {
     4444: "Metasploit default",
     5555: "Android ADB",
@@ -32,48 +27,39 @@ SUSPICIOUS_PORTS = {
     65535: "Common scan target",
 }
 
-
 class HIDSEngine:
-    """Packet-level intrusion detection engine with multiple threat detectors."""
-
     def __init__(self, on_alert, on_stat):
-        self.on_alert = on_alert   # callback(severity, category, message)
-        self.on_stat = on_stat     # callback(stats_dict)
+        self.on_alert = on_alert
+        self.on_stat = on_stat
 
         self.is_sniffing = False
         self.sniffer = None
         self.lock = threading.Lock()
 
-        # Thresholds
-        self.TIME_WINDOW = 5       # seconds per analysis window
-        self.SYN_THRESHOLD = 20    # SYN packets from same IP
-        self.PORT_THRESHOLD = 15   # distinct ports from same IP
-        self.CONN_THRESHOLD = 100  # total packets from same IP
-        self.DNS_THRESHOLD = 30    # DNS queries from same IP
-        self.ARP_THRESHOLD = 20    # ARP requests in window
+        self.TIME_WINDOW = 5
+        self.SYN_THRESHOLD = 20
+        self.PORT_THRESHOLD = 15
+        self.CONN_THRESHOLD = 100
+        self.DNS_THRESHOLD = 30
+        self.ARP_THRESHOLD = 20
 
-        # Tracking
         self.syn_counts = defaultdict(int)
         self.port_scans = defaultdict(set)
         self.conn_counts = defaultdict(int)
         self.dns_counts = defaultdict(int)
         self.arp_counts = defaultdict(int)
-        self.alerted = defaultdict(set)   # alerted[category] = set of IPs
+        self.alerted = defaultdict(set)
         self.last_reset = time.time()
 
-        # Stats
         self.total_packets = 0
         self.total_alerts = 0
-        self.alert_breakdown = defaultdict(int)  # category -> count
+        self.alert_breakdown = defaultdict(int)
         self.start_time = None
 
-        # DNS cache
         self.dns_cache = {}
 
-        # Available interfaces
         self.interfaces = self._get_interfaces()
 
-    # --- Interface discovery ---
     def _get_interfaces(self):
         try:
             clean = []
@@ -93,7 +79,6 @@ class HIDSEngine:
                     return iface
         return self.interfaces[0] if self.interfaces else ""
 
-    # --- DNS resolution ---
     def resolve_ip(self, ip):
         if ip in self.dns_cache:
             return self.dns_cache[ip]
@@ -104,7 +89,6 @@ class HIDSEngine:
             self.dns_cache[ip] = ip
         return self.dns_cache[ip]
 
-    # --- Tracker reset ---
     def _reset_window(self):
         with self.lock:
             self.syn_counts.clear()
@@ -115,7 +99,6 @@ class HIDSEngine:
             self.alerted.clear()
             self.last_reset = time.time()
 
-    # --- Start / Stop ---
     def start(self, iface):
         if self.is_sniffing:
             return
@@ -143,10 +126,8 @@ class HIDSEngine:
         if not self.is_sniffing:
             return
         self.is_sniffing = False
-        # Grab reference and clear it immediately to prevent re-entry
         sniffer_ref = self.sniffer
         self.sniffer = None
-        # Brief pause to let in-flight packet callbacks see is_sniffing=False
         time.sleep(0.3)
         try:
             if sniffer_ref:
@@ -155,7 +136,6 @@ class HIDSEngine:
             pass
         self.on_alert("info", "system", "Intrusion detection engine stopped.")
 
-    # --- Stats broadcast ---
     def _push_stats(self):
         elapsed = time.time() - self.start_time if self.start_time else 0
         pps = self.total_packets / elapsed if elapsed > 0 else 0
@@ -167,7 +147,6 @@ class HIDSEngine:
             "breakdown": dict(self.alert_breakdown),
         })
 
-    # --- Alert helper ---
     def _fire(self, severity, category, msg, src_ip=None):
         if src_ip:
             with self.lock:
@@ -178,7 +157,6 @@ class HIDSEngine:
         self.alert_breakdown[category] += 1
         self.on_alert(severity, category, msg)
 
-    # --- Packet processing ---
     def _process(self, packet):
         if not self.is_sniffing:
             return
@@ -191,11 +169,10 @@ class HIDSEngine:
         if now - self.last_reset > self.TIME_WINDOW:
             self._reset_window()
 
-        # --- ARP spoofing detection ---
         if ARP in packet:
             op = packet[ARP].op
             src_ip = packet[ARP].psrc
-            if op == 2:  # ARP reply
+            if op == 2:
                 with self.lock:
                     self.arp_counts[src_ip] += 1
                     if self.arp_counts[src_ip] >= self.ARP_THRESHOLD:
@@ -215,17 +192,15 @@ class HIDSEngine:
         with self.lock:
             self.conn_counts[src_ip] += 1
 
-        # --- ICMP detection ---
         if ICMP in packet:
             icmp_type = packet[ICMP].type
-            if icmp_type == 8:  # Echo request
+            if icmp_type == 8:
                 resolved = self.resolve_ip(src_ip)
                 self.on_alert("low", "icmp", f"ICMP Ping from {resolved}")
-            elif icmp_type == 3:  # Destination unreachable (possible scan)
-                pass  # normal, don't alert
+            elif icmp_type == 3:
+                pass
             return
 
-        # --- DNS tunneling / exfiltration ---
         if UDP in packet and packet[UDP].dport == 53 and DNS in packet:
             if DNSQR in packet:
                 qname = packet[DNSQR].qname.decode(errors="ignore")
@@ -238,7 +213,6 @@ class HIDSEngine:
                                    f"({self.dns_counts[src_ip]} in {self.TIME_WINDOW}s) "
                                    f"— possible DNS tunneling",
                                    src_ip)
-                # Long subdomain = possible data exfiltration
                 if len(qname) > 80:
                     resolved = self.resolve_ip(src_ip)
                     self._fire("high", "dns_exfil",
@@ -247,13 +221,11 @@ class HIDSEngine:
                                src_ip)
             return
 
-        # --- TCP analysis ---
         if TCP in packet:
             dst_port = packet[TCP].dport
             flags = int(packet[TCP].flags)
             is_syn = (flags & 0x02) and not (flags & 0x10)
 
-            # Suspicious port access
             if dst_port in SUSPICIOUS_PORTS:
                 desc = SUSPICIOUS_PORTS[dst_port]
                 resolved = self.resolve_ip(src_ip)
@@ -268,7 +240,6 @@ class HIDSEngine:
                     self.syn_counts[src_ip] += 1
                     self.port_scans[src_ip].add(dst_port)
 
-                    # SYN Flood
                     if self.syn_counts[src_ip] >= self.SYN_THRESHOLD:
                         resolved = self.resolve_ip(src_ip)
                         self._fire("critical", "syn_flood",
@@ -276,7 +247,6 @@ class HIDSEngine:
                                    f"({self.syn_counts[src_ip]} SYNs in {self.TIME_WINDOW}s)",
                                    src_ip)
 
-                    # Port scan
                     scanned = len(self.port_scans[src_ip])
                     if scanned >= self.PORT_THRESHOLD:
                         resolved = self.resolve_ip(src_ip)
@@ -285,7 +255,6 @@ class HIDSEngine:
                                    f"({scanned} ports probed)",
                                    src_ip)
 
-        # --- High traffic volume ---
         with self.lock:
             if self.conn_counts[src_ip] >= self.CONN_THRESHOLD:
                 resolved = self.resolve_ip(src_ip)
@@ -293,11 +262,6 @@ class HIDSEngine:
                            f"High traffic volume from {resolved} "
                            f"({self.conn_counts[src_ip]} pkts in {self.TIME_WINDOW}s)",
                            src_ip)
-
-
-# ==========================================
-# UI: HIDS FRAME
-# ==========================================
 
 ALERT_ICONS = {
     "critical": "🔥",
@@ -324,7 +288,6 @@ STAT_CARD_DEFS = [
     {"key": "uptime",  "icon": "⏱️", "label": "Uptime"},
 ]
 
-
 def is_admin():
     try:
         if os.name == "nt":
@@ -332,7 +295,6 @@ def is_admin():
         return os.geteuid() == 0
     except Exception:
         return False
-
 
 def create_hids_frame(parent):
     frame = ctk.CTkFrame(parent, fg_color="transparent")
@@ -343,7 +305,6 @@ def create_hids_frame(parent):
         "Real-time packet analysis — SYN floods, port scans, ARP spoofing & DNS tunneling.",
     ).pack(anchor="w", pady=(0, 10))
 
-    # Admin warning
     if not is_admin():
         ctk.CTkLabel(
             frame,
@@ -353,7 +314,6 @@ def create_hids_frame(parent):
     else:
         ctk.CTkFrame(frame, height=10, fg_color="transparent").pack(pady=(0, 10))
 
-    # --- Stats cards ---
     stats_frame = ctk.CTkFrame(frame, fg_color="transparent")
     stats_frame.pack(fill="x", pady=(0, 8))
     stats_frame.grid_columnconfigure((0, 1, 2, 3), weight=1)
@@ -378,7 +338,6 @@ def create_hids_frame(parent):
 
         stat_widgets[sd["key"]] = val_lbl
 
-    # Status indicator
     status_dot = ctk.CTkFrame(
         stats_frame, width=12, height=12, corner_radius=6,
         fg_color="#ff5252",
@@ -400,16 +359,13 @@ def create_hids_frame(parent):
                 text=f"{mins}m {secs}s", text_color="#d8d8e0")
         frame.after(0, _do)
 
-    # --- Controls card ---
     ctrl_card = gt.control_card(frame)
     ctrl_card.pack(fill="x", pady=(0, 8))
     ctrl_row = ctk.CTkFrame(ctrl_card, fg_color="transparent")
     ctrl_row.pack(fill="x", padx=14, pady=10)
 
-    # --- Log textbox ---
     txt_log = gt.create_log_textbox(frame)
 
-    # Color tags
     for sev, color in ALERT_COLORS.items():
         txt_log.tag_config(sev, foreground=color)
 
@@ -424,10 +380,8 @@ def create_hids_frame(parent):
             txt_log.see("end")
         txt_log.after(0, _append)
 
-    # --- Engine ---
     engine = HIDSEngine(log_alert, _update_stats)
 
-    # --- Interface combo ---
     combo_iface = gt.create_styled_combo(
         ctrl_row, values=engine.interfaces, width=240, height=38,
     )
@@ -476,7 +430,6 @@ def create_hids_frame(parent):
     )
     btn_stop.pack(side="left", padx=(0, 8))
 
-    # Clear log button
     ctk.CTkButton(
         ctrl_row, text="🗑 Clear", width=80, height=34,
         corner_radius=10, font=("Segoe UI", 11, "bold"),
@@ -484,7 +437,6 @@ def create_hids_frame(parent):
         command=lambda: txt_log.delete("1.0", "end"),
     ).pack(side="left", padx=(0, 8))
 
-    # Export
     ctk.CTkButton(
         ctrl_row, text="Export Log", width=100, height=38,
         corner_radius=12, font=gt.FONT_BTN,
@@ -500,7 +452,6 @@ def create_hids_frame(parent):
 
     frame.after(200, _init_log)
 
-    # Auto-start after 3 seconds
     def auto_start():
         log_alert("info", "system", "Auto-starting IDS engine...")
         threading.Thread(target=_on_start, daemon=True).start()
