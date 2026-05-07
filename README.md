@@ -56,6 +56,7 @@ An automated local security audit tool that inspects the host machine for miscon
 A real-time packet-level analysis engine powered by Scapy.  
 * Detects network anomalies including SYN floods, port scans, ARP spoofing, and excessive DNS queries (potential tunneling/exfiltration).  
 * Displays live traffic statistics (packets/sec, total alerts) and color-coded severity logs.
+* Route Trace Mapping: Live geolocation of external IPs, plotting traffic origins and attack severities on an interactive world map with quadratic bezier arcs.
 
 <br>
 
