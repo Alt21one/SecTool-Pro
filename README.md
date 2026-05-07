@@ -59,7 +59,12 @@ A real-time packet-level analysis engine powered by Scapy.
 
 <br>
 
-<img width="1187" height="850" alt="Screenshot_72" src="https://github.com/user-attachments/assets/1f0ba19c-c684-4602-a317-64dd04fcad30" />
+<img width="1184" height="852" alt="Screenshot_78" src="https://github.com/user-attachments/assets/7855804f-bef1-4aa3-9904-d96f4363f06c" />
+
+<br>
+
+<img width="1375" height="912" alt="Screenshot_79" src="https://github.com/user-attachments/assets/b7987ae0-3487-4c1e-a94c-35d6f6352a29" />
+
 
 <br>
 
